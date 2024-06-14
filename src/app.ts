@@ -1,7 +1,8 @@
+import path from "path";
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import { handleCommand, registerCommands } from "./commands";
-
-require("dotenv").config({ path: __dirname + "/../.env" });
 
 console.log("Starting bot...");
 const client = new Client({
