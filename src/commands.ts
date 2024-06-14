@@ -1,73 +1,42 @@
-import { InteractionResponseType, InteractionType } from "discord-interactions";
-import { discordRequest } from "./utils";
 import {
-    Command,
-    CommandData,
-    CommandType,
-    IntegrationType,
-    InteractionContext,
-} from "./types";
+    CommandInteraction,
+    REST,
+    Routes,
+    SlashCommandBuilder,
+} from "discord.js";
 
-const commands: { [name: string]: Command } = {
-    ping: {
-        type: CommandType.ChatInput,
-        description: "Ping the bot",
-        integration_types: IntegrationType.All,
-        contexts: InteractionContext.All,
-        execute: async (data) => {
-            return {
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    content: "Pong!",
-                },
-            };
+const commands: {
+    builder: SlashCommandBuilder;
+    execute: (interaction: CommandInteraction) => Promise<void>;
+}[] = [
+    {
+        builder: new SlashCommandBuilder()
+            .setName("ping")
+            .setDescription("Replies with Pong!"),
+        execute: async (interaction) => {
+            interaction.reply("Pong!");
         },
     },
-};
+];
 
-export async function installCommands() {
-    console.log("Installing commands...");
+export async function registerCommands() {
+    const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
-    const endpoint = `applications/${process.env.DISCORD_APP_ID}/commands`;
-
-    const commandsWithNames = Object.entries(commands).map(
-        ([name, command]) => ({
-            ...command,
-            name,
-        })
-    );
-
-    try {
-        await discordRequest(endpoint, {
-            method: "PUT",
-            body: commandsWithNames,
-        });
-    } catch (err) {
-        console.error("Failed to install commands", err);
-    }
+    console.log(`Refreshing ${commands.length} slash commands...`);
+    await rest.put(Routes.applicationCommands(process.env.DISCORD_CLIENT_ID), {
+        body: commands.map((command) => command.builder),
+    });
 }
 
-export async function handleCommand(data: CommandData): Promise<any> {
-    console.log("Handling command", data);
+export async function handleCommand(interaction: CommandInteraction) {
+    const command = commands.find(
+        (command) => command.builder.name === interaction.commandName
+    );
 
-    const command = commands[data.name];
     if (!command) {
-        console.error("Command not found", data.name);
-        return {
-            data: {
-                content: "Command not found",
-            },
-        };
+        interaction.reply({ content: "Command not found", ephemeral: true });
+        return;
     }
 
-    try {
-        return command.execute(data);
-    } catch (err) {
-        console.error("Failed to execute command", err);
-        return {
-            data: {
-                content: "Failed to execute command",
-            },
-        };
-    }
+    command.execute(interaction);
 }
